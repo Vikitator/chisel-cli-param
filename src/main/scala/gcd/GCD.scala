@@ -75,11 +75,16 @@ object GCD {
 }
 
 object GCDGen extends App {
+  import mappable._
+
+  def mapify[T: Mappable](t: T) = implicitly[Mappable[T]].toMap(t)
+  def materialize[T: Mappable](map: Map[String, Any]) = implicitly[Mappable[T]].fromMap(map)
+
   val optionsManager = new ExecutionOptionsManager("gcdgen")
   with HasChiselExecutionOptions with HasFirrtlOptions with HasParams
   optionsManager.parse(args) match {
     case true => 
-      chisel3.Driver.execute(optionsManager, () => GCD(optionsManager.params))
+      chisel3.Driver.execute(optionsManager, () => new GCD(materialize[GCDConfig](optionsManager.params)))
     case _ =>
       ChiselExecutionFailure("could not parse results")
   }

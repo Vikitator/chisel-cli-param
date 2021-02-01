@@ -19,7 +19,10 @@ lazy val root = (project in file("."))
       "-Xcheckinit"
     ),
     addCompilerPlugin("edu.berkeley.cs" % "chisel3-plugin" % "3.4.1" cross CrossVersion.full),
-    addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full)
-  )
+    addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full))
+  .dependsOn(macroSub)
 
+lazy val scalaReflect = Def.setting { "org.scala-lang" % "scala-reflect" % scalaVersion.value }
 
+lazy val macroSub = (project in file("macro"))
+  .settings(libraryDependencies += scalaReflect.value)
