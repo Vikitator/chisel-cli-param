@@ -78,7 +78,7 @@ object GCDGen extends App {
   import mappable._
 
   def mapify[T: Mappable](t: T) = implicitly[Mappable[T]].toMap(t)
-  def materialize[T: Mappable](map: Map[String, Any]) = implicitly[Mappable[T]].fromMap(map)
+  def materialize[T: Mappable](map: Map[String, String]) = implicitly[Mappable[T]].fromMap(map)
 
   val optionsManager = new ExecutionOptionsManager("gcdgen")
   with HasChiselExecutionOptions with HasFirrtlOptions with HasParams

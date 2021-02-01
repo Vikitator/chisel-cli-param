@@ -5,7 +5,7 @@ import scala.reflect.macros.whitebox.Context
 
 trait Mappable[T] {
   def toMap(t: T): Map[String, Any]
-  def fromMap(map: Map[String, Any]): T
+  def fromMap(map: Map[String, String]): T
 }
 
 object Mappable {
@@ -25,13 +25,21 @@ object Mappable {
       val decoded = name.decodedName.toString
       val returnType = tpe.decl(name).typeSignature
 
-      (q"$decoded -> t.$name", q"map($decoded).asInstanceOf[$returnType]")
+      val fromMapLine = returnType match {
+        // https://groups.google.com/g/scala-user/c/XElKxcK39I://groups.google.com/g/scala-user/c/XElKxcK39Ik 
+        case NullaryMethodType(res) if res =:= typeOf[Int] => q"map($decoded).toInt"
+        case NullaryMethodType(res) if res =:= typeOf[String] => q"map($decoded)"
+        case NullaryMethodType(res) if res =:= typeOf[Boolean] => q"map($decoded).toBoolean"
+        case _ => q""
+      }
+
+      (q"$decoded -> t.$name", fromMapLine)
     }.unzip
 
     c.Expr[Mappable[T]] { q"""
       new Mappable[$tpe] {
         def toMap(t: $tpe): Map[String, Any] = Map(..$toMapParams)
-        def fromMap(map: Map[String, Any]): $tpe = $companion(..$fromMapParams)
+        def fromMap(map: Map[String, String]): $tpe = $companion(..$fromMapParams)
       }
     """ }
   }
