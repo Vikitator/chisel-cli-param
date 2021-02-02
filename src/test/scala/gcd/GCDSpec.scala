@@ -9,33 +9,15 @@ import org.scalatest.FreeSpec
 import chisel3.experimental.BundleLiterals._
 import chiseltest.internal._
 import chiseltest.experimental.TestOptionBuilder._
+import firrtl.options.{StageMain}
 
-object GCDTest extends App {
-  val optionsManager = new ExecutionOptionsManager("gcdtest") with HasParams
-  optionsManager.parse(args) match {
-    case true => 
-      //println(optionsManager.commonOptions.programArgs)
-      (new GCDSpec(optionsManager.params)).execute()
-    case _ =>
-      ChiselExecutionFailure("could not parse results")
-  }
-}
+import mappable._
+import cliparams._
 
-/**
-  * This is a trivial example of how to run this Specification
-  * From within sbt use:
-  * {{{
-  * testOnly gcd.GcdDecoupledTester
-  * }}}
-  * From a terminal shell use:
-  * {{{
-  * sbt 'testOnly gcd.GcdDecoupledTester'
-  * }}}
-  */
-class GCDSpec(params: Map[String, String] = Map()) extends FreeSpec with ChiselScalatestTester {
+class GCDSpec(params: GCDConfig, annotations: AnnotationSeq = Seq()) extends FreeSpec with ChiselScalatestTester {
 
   "Gcd should calculate proper greatest common denominator" in {
-    test(GCD(params)) { dut =>
+    test(new GCD(params)) { dut =>
       dut.io.value1.poke(95.U)
       dut.io.value2.poke(10.U)
       dut.io.loadingValues.poke(true.B)
@@ -48,3 +30,8 @@ class GCDSpec(params: Map[String, String] = Map()) extends FreeSpec with ChiselS
     }
   }
 }
+
+class GCDTestStage extends GenericParameterCliStage[GCDConfig]((params, annotations) => {
+  (new GCDSpec(params, annotations)).execute()}, GCDConfig())
+
+object GCDTest extends StageMain(new GCDTestStage)
