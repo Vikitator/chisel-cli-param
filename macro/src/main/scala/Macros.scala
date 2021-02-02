@@ -26,7 +26,7 @@ object Mappable {
       val returnType = tpe.decl(name).typeSignature
 
       val toMapLine = returnType match {
-        case NullaryMethodType(res) if res =:= typeOf[Seq[_]] => q"""$decoded -> t.$name.map(_.toString).mkString(";")"""
+        case NullaryMethodType(res) if res =:= typeOf[Seq[Int]] => q"""$decoded -> t.$name.map(_.toString).mkString(";")"""
         case _ => q"$decoded -> t.$name.toString"
       }
 
@@ -35,7 +35,7 @@ object Mappable {
         case NullaryMethodType(res) if res =:= typeOf[Int] => q"map($decoded).toInt"
         case NullaryMethodType(res) if res =:= typeOf[String] => q"map($decoded)"
         case NullaryMethodType(res) if res =:= typeOf[Boolean] => q"map($decoded).toBoolean"
-        case NullaryMethodType(res) if res =:= typeOf[Seq[Int]] => q"""map($decoded).split(";").map(_.toInt)"""
+        case NullaryMethodType(res) if res =:= typeOf[Seq[Int]] => q"""Seq(map($decoded).split(";").map(_.toInt):_*)"""
         case _ => q""
       }
 
