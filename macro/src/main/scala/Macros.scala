@@ -4,7 +4,7 @@ import scala.language.experimental.macros
 import scala.reflect.macros.whitebox.Context
 
 trait Mappable[T] {
-  def toMap(t: T): Map[String, Any]
+  def toMap(t: T): Map[String, String]
   def fromMap(map: Map[String, String]): T
 }
 
@@ -33,12 +33,12 @@ object Mappable {
         case _ => q""
       }
 
-      (q"$decoded -> t.$name", fromMapLine)
+      (q"$decoded -> t.$name.toString", fromMapLine)
     }.unzip
 
     c.Expr[Mappable[T]] { q"""
       new Mappable[$tpe] {
-        def toMap(t: $tpe): Map[String, Any] = Map(..$toMapParams)
+        def toMap(t: $tpe): Map[String, String] = Map(..$toMapParams)
         def fromMap(map: Map[String, String]): $tpe = $companion(..$fromMapParams)
       }
     """ }
