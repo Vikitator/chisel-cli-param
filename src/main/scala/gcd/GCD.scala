@@ -4,6 +4,11 @@ package gcd
 
 import firrtl._
 import chisel3._
+import chisel3.stage.{ChiselStage, ChiselGeneratorAnnotation}
+import chisel3.stage.ChiselCli
+import firrtl.annotations.{Annotation, NoTargetAnnotation}
+import firrtl.options.{HasShellOptions, Shell, ShellOption, Stage, Unserializable, StageMain}
+import firrtl.stage.FirrtlCli
 
 case class GCDConfig(
   len: Int = 16,
@@ -43,49 +48,51 @@ class GCD (val conf: GCDConfig = GCDConfig()) extends Module {
   }
 }
 
-trait HasParams {
-  self: ExecutionOptionsManager =>
-
-  var params: Map[String, String] = Map()
-
-  parser.note("Design Parameters")
-
-  parser.opt[Map[String, String]]('p', "params")
-    .valueName("k1=v1,k2=v2")
-    .foreach { v => params = v }
-    .text("Parameters of Predictor")
+trait SomeAnnotaion {
+  this: Annotation =>
 }
 
-object GCD {
-  def apply(params: Map[String, String]): GCD = {
-    new GCD(params2conf(params))
-  }
+case class ParameterAnnotation(map: Map[String, String])
+    extends SomeAnnotaion
+    with NoTargetAnnotation
+    with Unserializable
 
-  def params2conf(params: Map[String, String]): GCDConfig = {
-    var conf = new GCDConfig
-    for ((k, v) <- params) {
-      (k, v) match {
-        case ("len", _) => conf = conf.copy(len = v.toInt)
-        case ("validHigh", _) => conf = conf.copy(validHigh = v.toBoolean)
-        case _ =>
-      }
-    }
-    conf
+object ParameterAnnotation extends HasShellOptions {
+  val options = Seq(
+    new ShellOption[Map[String, String]](
+      longOption = "params",
+      toAnnotationSeq = (a: Map[String, String]) => Seq(ParameterAnnotation(a)),
+      helpText = """a comma separated, space free list of additional paramters, e.g. --param-string "k1=7,k2=dog" """
+    )
+  )
+}
+
+trait ParameterCli {
+  this: Shell =>
+
+  Seq(ParameterAnnotation).foreach(_.addOptions(parser))
+}
+
+import mappable._
+class GenericParameterCliStage[P: Mappable](thunk: (P, AnnotationSeq) => Unit, default: P) extends Stage {
+
+  def materialize(map: Map[String, String]) = implicitly[Mappable[P]].fromMap(map)
+
+  val shell: Shell = new Shell("chiseltest") with ParameterCli with ChiselCli with FirrtlCli
+
+  def run(annotations: AnnotationSeq): AnnotationSeq = {
+    val params = annotations
+      .collectFirst {case ParameterAnnotation(map) => materialize(map)}
+      .getOrElse(default)
+
+    thunk(params, annotations)
+    annotations
   }
 }
 
-object GCDGen extends App {
-  import mappable._
+class GCDGenStage extends GenericParameterCliStage[GCDConfig]((params, annotations) => {
+  (new chisel3.stage.ChiselStage).execute(
+    Array("-X", "verilog"),
+    Seq(ChiselGeneratorAnnotation(() => new GCD(params))))}, GCDConfig())
 
-  def mapify[T: Mappable](t: T) = implicitly[Mappable[T]].toMap(t)
-  def materialize[T: Mappable](map: Map[String, String]) = implicitly[Mappable[T]].fromMap(map)
-
-  val optionsManager = new ExecutionOptionsManager("gcdgen")
-  with HasChiselExecutionOptions with HasFirrtlOptions with HasParams
-  optionsManager.parse(args) match {
-    case true => 
-      chisel3.Driver.execute(optionsManager, () => new GCD(materialize[GCDConfig](optionsManager.params)))
-    case _ =>
-      ChiselExecutionFailure("could not parse results")
-  }
-}
+object GCDGen extends StageMain(new GCDGenStage)
