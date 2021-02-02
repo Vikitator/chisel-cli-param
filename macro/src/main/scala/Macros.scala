@@ -25,15 +25,21 @@ object Mappable {
       val decoded = name.decodedName.toString
       val returnType = tpe.decl(name).typeSignature
 
+      val toMapLine = returnType match {
+        case NullaryMethodType(res) if res =:= typeOf[Seq[_]] => q"""$decoded -> t.$name.map(_.toString).mkString(";")"""
+        case _ => q"$decoded -> t.$name.toString"
+      }
+
       val fromMapLine = returnType match {
         // https://groups.google.com/g/scala-user/c/XElKxcK39I://groups.google.com/g/scala-user/c/XElKxcK39Ik 
         case NullaryMethodType(res) if res =:= typeOf[Int] => q"map($decoded).toInt"
         case NullaryMethodType(res) if res =:= typeOf[String] => q"map($decoded)"
         case NullaryMethodType(res) if res =:= typeOf[Boolean] => q"map($decoded).toBoolean"
+        case NullaryMethodType(res) if res =:= typeOf[Seq[Int]] => q"""map($decoded).split(";").map(_.toInt)"""
         case _ => q""
       }
 
-      (q"$decoded -> t.$name.toString", fromMapLine)
+      (toMapLine, fromMapLine)
     }.unzip
 
     c.Expr[Mappable[T]] { q"""
